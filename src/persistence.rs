@@ -13,6 +13,7 @@ const MAX_STATE_BYTES: u64 = 1024 * 1024;
 pub(crate) struct State {
     pub version: u32,
     pub theme: ThemeChoice,
+    pub language: crate::language::Language,
     pub fonts: [Option<String>; 2],
     pub zoom: f32,
     pub text_size_percent: u16,
@@ -27,6 +28,7 @@ impl Default for State {
         Self {
             version: 1,
             theme: ThemeChoice::default(),
+            language: crate::language::Language::default(),
             fonts: [None, None],
             zoom: 1.0,
             text_size_percent: 100,

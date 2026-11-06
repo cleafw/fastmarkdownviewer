@@ -356,28 +356,29 @@ impl ViewerWindow {
     }
 
     fn landing_ui(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(((ui.available_height() - 360.0) * 0.35).max(16.0));
                 ui.heading("FastMarkdownViewer");
-                ui.label("Drop a Markdown file here, or open one.");
+                ui.label(language.text("Drop a Markdown file here, or open one.", "将 Markdown 文档拖到这里，或手动打开。"));
                 ui.add_space(12.0);
-                if ui.button("Open Markdown file…").clicked() {
+                if ui.button(language.text("Open Markdown file…", "打开 Markdown 文档…")).clicked() {
                     self.open_dialog();
                 }
                 ui.add_space(8.0);
-                ui.weak("Read-only · no history · no telemetry");
+                ui.weak(language.text("Read-only · no history · no telemetry", "只读 · 无历史记录 · 无遥测"));
                 ui.add_space(20.0);
-                ui.strong("Keyboard shortcuts");
+                ui.strong(language.text("Keyboard shortcuts", "键盘快捷键"));
                 for (shortcut, action) in [
-                    ("Ctrl+O", "Open a Markdown file"),
-                    ("Ctrl+F", "Show / hide Find"),
-                    ("Ctrl+H", "Show / hide headings"),
-                    ("Enter / Shift+Enter", "Next / previous match"),
-                    ("Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous tab"),
-                    ("Ctrl+W", "Close tab"),
-                    ("F5 / Ctrl+R", "Reload file"),
-                    ("Ctrl+mouse wheel", "Zoom text"),
+                    ("Ctrl+O", language.text("Open a Markdown file", "打开 Markdown 文档")),
+                    ("Ctrl+F", language.text("Show / hide Find", "显示或隐藏查找栏")),
+                    ("Ctrl+H", language.text("Show / hide headings", "显示或隐藏目录")),
+                    ("Enter / Shift+Enter", language.text("Next / previous match", "下一个或上一个匹配项")),
+                    ("Ctrl+Tab / Ctrl+Shift+Tab", language.text("Next / previous tab", "下一个或上一个标签页")),
+                    ("Ctrl+W", language.text("Close tab", "关闭标签页")),
+                    ("F5 / Ctrl+R", language.text("Reload file", "重新加载文档")),
+                    ("Ctrl+mouse wheel", language.text("Zoom text", "缩放文字")),
                 ] {
                     ui.label(format!(
                         "{}   —   {action}",
@@ -385,22 +386,23 @@ impl ViewerWindow {
                     ));
                 }
                 ui.add_space(8.0);
-                ui.weak("Drag a tab outside the window to open it in a new window.");
+                ui.weak(language.text("Drag a tab outside the window to open it in a new window.", "将标签页拖出窗口可在新窗口中打开。"));
             });
         });
     }
 
     fn menu_bar(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         egui::MenuBar::new().ui(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.button("Open…").clicked() {
+            ui.menu_button(language.text("File", "文件"), |ui| {
+                if ui.button(language.text("Open…", "打开…")).clicked() {
                     self.open_dialog();
                     ui.close();
                 }
                 if ui
                     .add_enabled(
                         !self.tabs.is_empty(),
-                        egui::Button::new(crate::platform::shortcut_label("Close tab    Ctrl+W")),
+                        egui::Button::new(crate::platform::shortcut_label(language.text("Close tab    Ctrl+W", "关闭标签页    Ctrl+W"))),
                     )
                     .clicked()
                 {
@@ -408,44 +410,45 @@ impl ViewerWindow {
                     ui.close();
                 }
                 ui.separator();
-                if ui.add_enabled(!self.tabs.is_empty(), egui::Button::new(crate::platform::shortcut_label("Reload    F5 / Ctrl+R"))).clicked() {
+                if ui.add_enabled(!self.tabs.is_empty(), egui::Button::new(crate::platform::shortcut_label(language.text("Reload    F5 / Ctrl+R", "重新加载    F5 / Ctrl+R")))).clicked() {
                     self.reload(ui.ctx());
                     ui.close();
                 }
-                if ui.button("Close window").clicked() {
+                if ui.button(language.text("Close window", "关闭窗口")).clicked() {
                     self.close_requested = true;
                 }
-                if ui.button("Quit application").on_hover_text("Save all open windows and tabs, then exit.").clicked() {
+                if ui.button(language.text("Quit application", "退出应用")).on_hover_text(language.text("Save all open windows and tabs, then exit.", "保存所有打开的窗口和标签页后退出。")).clicked() {
                     ui.ctx().data_mut(|data| data.insert_temp(egui::Id::new("quit_application"), true));
                     ui.ctx().request_repaint_of(egui::ViewportId::ROOT);
                 }
             });
             if ui
-                .add_enabled(!self.tabs.is_empty(), egui::Button::new("Find"))
-                .on_hover_text(crate::platform::shortcut_label("Show / hide Find (Ctrl+F)"))
+                .add_enabled(!self.tabs.is_empty(), egui::Button::new(language.text("Find", "查找")))
+                .on_hover_text(crate::platform::shortcut_label(language.text("Show / hide Find (Ctrl+F)", "显示或隐藏查找栏 (Ctrl+F)")))
                 .clicked()
             {
                 self.open_find();
             }
-            ui.menu_button("Settings", |ui| {
+            ui.menu_button(language.text("Settings", "设置"), |ui| {
+                crate::language::Language::menu(ui);
                 let wrap_id = egui::Id::new("word_wrap");
                 let mut wrap = ui.ctx().data(|data| data.get_temp::<bool>(wrap_id).unwrap_or(true));
-                if ui.checkbox(&mut wrap, "Word wrap").on_hover_text("Wrap prose, table cells, and code. Shared by this session's windows.").changed() {
+                if ui.checkbox(&mut wrap, language.text("Word wrap", "自动换行")).on_hover_text(language.text("Wrap prose, table cells, and code. Shared by this session's windows.", "对正文、表格单元格和代码自动换行。本次会话的所有窗口共用此设置。")).changed() {
                     ui.ctx().data_mut(|data| data.insert_temp(wrap_id, wrap));
                     ui.ctx().request_repaint();
                 }
                 crate::appearance::DocumentWidth::menu(ui);
-                ui.checkbox(&mut self.show_outline, crate::platform::shortcut_label("Outline sidebar    Ctrl+H"));
+                ui.checkbox(&mut self.show_outline, crate::platform::shortcut_label(language.text("Outline sidebar    Ctrl+H", "目录侧栏    Ctrl+H")));
                 let mut automatic = crate::network::automatic_images(ui.ctx());
-                if ui.checkbox(&mut automatic, "Automatically load remote images").on_hover_text("Shared by this session's windows. Turning off hides remote images and stops new automatic requests; requests already running may finish.").changed() {
+                if ui.checkbox(&mut automatic, language.text("Automatically load remote images", "自动加载远程图片")).on_hover_text(language.text("Shared by this session's windows. Turning off hides remote images and stops new automatic requests; requests already running may finish.", "本次会话的所有窗口共用此设置。关闭后隐藏远程图片并停止发起新请求，正在执行的请求可能继续。")).changed() {
                     crate::network::set_automatic_images(ui.ctx(), automatic);
                 }
                 ui.separator();
                 let mut theme = *self.theme.lock().expect("appearance lock");
                 let previous = theme;
-                ui.menu_button(format!("Color theme: {}", theme.label()), |ui| {
+                ui.menu_button(format!("{}: {}", language.text("Color theme", "配色主题"), theme.localized_label(language)), |ui| {
                     for choice in ThemeChoice::ALL {
-                        if ui.radio_value(&mut theme, choice, choice.label()).clicked() {
+                        if ui.radio_value(&mut theme, choice, choice.localized_label(language)).clicked() {
                             ui.close();
                         }
                     }
@@ -458,9 +461,9 @@ impl ViewerWindow {
 
                 ui.separator();
                 crate::appearance::text_size_menu(ui);
-                ui.label(format!("Interface zoom: {:.0}%", ui.ctx().zoom_factor() * 100.0));
+                ui.label(format!("{}: {:.0}%", language.text("Interface zoom", "界面缩放"), ui.ctx().zoom_factor() * 100.0));
                 egui::gui_zoom::zoom_menu_buttons(ui);
-                ui.weak("Appearance is shared by this session’s windows.");
+                ui.weak(language.text("Appearance is shared by this session’s windows.", "本次会话的所有窗口共用外观设置。"));
             });
         });
         ui.separator();
@@ -559,6 +562,7 @@ impl ViewerWindow {
     }
 
     fn tabs_ui(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         if self.tabs.is_empty() {
             return;
         }
@@ -584,7 +588,7 @@ impl ViewerWindow {
                                 .add(egui::Button::selectable(index == self.active, &tab.document.title)
                                     .sense(egui::Sense::click_and_drag()))
                                 .on_hover_cursor(egui::CursorIcon::Grab)
-                                .on_hover_text(format!("{}\nDrag onto another tab to reorder, or outside this window to create a new window.", tab.document.path.display()));
+                                .on_hover_text(format!("{}\n{}", tab.document.path.display(), language.text("Drag onto another tab to reorder, or outside this window to create a new window.", "拖到其他标签页可调整顺序，拖出窗口可在新窗口中打开。")));
                             tab_rects.push((tab.id, response.rect));
                             if response.is_pointer_button_down_on()
                                 && ui.input(|input| input.pointer.primary_down())
@@ -595,15 +599,15 @@ impl ViewerWindow {
                                 self.tab_drag = Some(TabDrag { tab_id: tab.id, origin, latest: origin });
                             }
                             response.context_menu(|ui| {
-                                if ui.button("Rename file…").clicked() {
+                                if ui.button(language.text("Rename file…", "重命名文件…")).clicked() {
                                     rename = Some((tab.id, tab.document.title.clone()));
                                     ui.close();
                                 }
-                                if ui.button(if cfg!(target_os = "windows") { "Show in Explorer" } else { "Show in file manager" }).clicked() {
+                                if ui.button(if cfg!(target_os = "windows") { language.text("Show in Explorer", "在资源管理器中显示") } else { language.text("Show in file manager", "在文件管理器中显示") }).clicked() {
                                     reveal = Some(tab.document.path.clone());
                                     ui.close();
                                 }
-                                if ui.button("Move to new window").clicked() {
+                                if ui.button(language.text("Move to new window", "移到新窗口")).clicked() {
                                     detach = Some(tab.id);
                                     ui.close();
                                 }
@@ -616,7 +620,7 @@ impl ViewerWindow {
                             }
                             if ui
                                 .small_button("×")
-                                .on_hover_text(crate::platform::shortcut_label("Close tab (Ctrl+W)"))
+                                .on_hover_text(crate::platform::shortcut_label(language.text("Close tab (Ctrl+W)", "关闭标签页 (Ctrl+W)")))
                                 .clicked()
                             {
                                 close = Some(index);
@@ -626,7 +630,7 @@ impl ViewerWindow {
                     }
                     if ui
                         .button("+")
-                        .on_hover_text(crate::platform::shortcut_label("Open file in a tab (Ctrl+O)"))
+                        .on_hover_text(crate::platform::shortcut_label(language.text("Open file in a tab (Ctrl+O)", "在标签页中打开文件 (Ctrl+O)")))
                         .clicked()
                     {
                         self.open_dialog();
@@ -691,6 +695,7 @@ impl ViewerWindow {
     }
 
     fn rename_ui(&mut self, context: &egui::Context) {
+        let language = crate::language::Language::current(context);
         let Some(mut dialog) = self.rename_dialog.take() else {
             return;
         };
@@ -698,8 +703,8 @@ impl ViewerWindow {
         let mut cancel = false;
         crate::fonts::ensure_for_text(context, &dialog.name);
         egui::Modal::new(egui::Id::new("rename file")).show(context, |ui| {
-            ui.heading("Rename file");
-            ui.label("Filename only. The file stays in its current folder.");
+            ui.heading(language.text("Rename file", "重命名文件"));
+            ui.label(language.text("Filename only. The file stays in its current folder.", "只修改文件名，文件保留在原目录。"));
             let response = ui.text_edit_singleline(&mut dialog.name);
             if response.changed() {
                 crate::fonts::ensure_for_text(context, &dialog.name);
@@ -712,8 +717,8 @@ impl ViewerWindow {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
             ui.horizontal(|ui| {
-                submit = ui.button("Rename").clicked();
-                cancel = ui.button("Cancel").clicked();
+                submit = ui.button(language.text("Rename", "重命名")).clicked();
+                cancel = ui.button(language.text("Cancel", "取消")).clicked();
             });
             submit |=
                 ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Enter));
@@ -826,6 +831,7 @@ impl ViewerWindow {
     }
 
     fn find_ui(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         let Some(tab) = self.tabs.get_mut(self.active) else {
             return;
         };
@@ -834,16 +840,16 @@ impl ViewerWindow {
         }
         crate::fonts::ensure_for_text(ui.ctx(), &tab.search.query);
         ui.horizontal_wrapped(|ui| {
-            ui.label("Find:");
+            ui.label(language.text("Find:", "查找："));
             let response = ui
                 .add(
                     egui::TextEdit::singleline(&mut tab.search.query)
                         .id_salt(("find", tab.id))
-                        .hint_text("Find (* wildcard)…")
+                        .hint_text(language.text("Find (* wildcard)…", "查找（* 为通配符）…"))
                         .desired_width(180.0),
                 )
                 .on_hover_text(
-                    r"* matches any text on the same line. Use \* for a literal asterisk.",
+                    language.text(r"* matches any text on the same line. Use \* for a literal asterisk.", r"* 匹配同一行中的任意文字。使用 \* 匹配星号本身。"),
                 );
             if response.changed() {
                 crate::fonts::ensure_for_text(ui.ctx(), &tab.search.query);
@@ -860,21 +866,21 @@ impl ViewerWindow {
             if ui
                 .add_enabled(
                     !tab.search.matches.is_empty(),
-                    egui::Button::new("Previous"),
+                    egui::Button::new(language.text("Previous", "上一个")),
                 )
                 .clicked()
             {
                 tab.search.advance(true);
             }
             if ui
-                .add_enabled(!tab.search.matches.is_empty(), egui::Button::new("Next"))
+                .add_enabled(!tab.search.matches.is_empty(), egui::Button::new(language.text("Next", "下一个")))
                 .clicked()
             {
                 tab.search.advance(false);
             }
-            ui.checkbox(&mut tab.search.case_sensitive, "Match case");
+            ui.checkbox(&mut tab.search.case_sensitive, language.text("Match case", "区分大小写"));
             if ui
-                .small_button("Close find")
+                .small_button(language.text("Close find", "关闭查找栏"))
                 .on_hover_text("Escape")
                 .clicked()
             {
@@ -886,10 +892,11 @@ impl ViewerWindow {
     }
 
     fn reading_ui(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         self.load_active();
         if let Some(error) = &self.tabs[self.active].load_error {
             ui.colored_label(ui.visuals().error_fg_color, error);
-            if ui.button("Retry loading file").clicked() {
+            if ui.button(language.text("Retry loading file", "重试加载文件")).clicked() {
                 self.reload(ui.ctx());
             }
             return;
@@ -906,8 +913,8 @@ impl ViewerWindow {
                 .size_range(100.0..=320.0)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.strong("Outline");
-                        if ui.small_button("Hide").clicked() {
+                        ui.strong(language.text("Outline", "目录"));
+                        if ui.small_button(language.text("Hide", "隐藏")).clicked() {
                             self.show_outline = false;
                         }
                     });
@@ -916,7 +923,7 @@ impl ViewerWindow {
                         .id_salt(("outline", tab.id))
                         .show(ui, |ui| {
                             if tab.markdown_cache.navigation.headings.is_empty() {
-                                ui.weak("No headings");
+                                ui.weak(language.text("No headings", "没有标题"));
                             }
                             for (index, heading) in
                                 tab.markdown_cache.navigation.headings.iter().enumerate()
@@ -1001,6 +1008,7 @@ impl ViewerWindow {
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let context = ui.ctx().clone();
+        let language = crate::language::Language::current(&context);
         self.load_active();
         Self::apply_zoom_input(&context);
         self.handle_drops(&context);
@@ -1039,7 +1047,7 @@ impl ViewerWindow {
                                 ui.with_layout(
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
-                                        dismiss = ui.small_button("Dismiss").clicked();
+                                        dismiss = ui.small_button(language.text("Dismiss", "关闭提示")).clicked();
                                     },
                                 );
                             });
@@ -1055,6 +1063,22 @@ impl ViewerWindow {
                     self.reading_ui(ui);
                 }
             });
+
+        if context.input(|input| !input.raw.hovered_files.is_empty()) {
+            let rect = ui.max_rect();
+            let painter = context.layer_painter(egui::LayerId::new(
+                egui::Order::Foreground,
+                egui::Id::new("file_drop_preview"),
+            ));
+            painter.rect_filled(rect, 0.0, egui::Color32::from_black_alpha(180));
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                language.text("Drop to open Markdown files", "松开鼠标以打开 Markdown 文档"),
+                egui::FontId::proportional(22.0),
+                egui::Color32::WHITE,
+            );
+        }
 
         self.intercept_links(&context);
         self.rename_ui(&context);

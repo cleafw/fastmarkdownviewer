@@ -2,6 +2,8 @@
 
 FastMarkdownViewer is a native, read-only Markdown viewer for Windows, macOS, and Linux. Its job is deliberately narrow: double-click a Markdown file and see a rendered document quickly.
 
+Drop local Markdown files from your file manager anywhere in the viewer window to open them in tabs. The interface follows your system language and supports English and Simplified Chinese. Use **Settings → Language** to override the system preference.
+
 See [desktop installation instructions](docs/CROSS_PLATFORM.md) for Windows x64,
 macOS 15 or later (Apple Silicon and Intel), and Ubuntu 24.04 x64 packages,
 platform requirements, and tested configurations.

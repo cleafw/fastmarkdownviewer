@@ -35,6 +35,7 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title(title)
             .with_app_id("FastMarkdownViewer")
+            .with_drag_and_drop(true)
             .with_inner_size([900.0, 700.0])
             .with_min_inner_size([420.0, 280.0])
             .with_icon(platform::app_icon()),

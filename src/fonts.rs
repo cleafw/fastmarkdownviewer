@@ -109,19 +109,21 @@ fn select(context: &egui::Context, file: Option<&'static str>, code: bool) -> Re
 
 /// Installed text and code fonts, loaded only when selected.
 pub fn menu(ui: &mut egui::Ui) {
+    let language = crate::language::Language::current(ui.ctx());
+    let default = language.text("Default", "默认");
     let Some(state) = ui.ctx().data(|data| data.get_temp::<FontState>(state_id())) else {
         return;
     };
-    for (code, title) in [(false, "Text font"), (true, "Code font")] {
+    for (code, title) in [(false, language.text("Text font", "正文字体")), (true, language.text("Code font", "代码字体"))] {
         let current = &state.preferred[usize::from(code)];
         let label = state
             .available
             .iter()
             .find(|font| Some(font.file) == current.as_deref())
-            .map_or("Default", |font| font.label);
+            .map_or(default, |font| font.label);
         ui.menu_button(format!("{title}: {label}"), |ui| {
             let mut choice = None;
-            if ui.radio(current.is_none(), "Default").clicked() {
+            if ui.radio(current.is_none(), default).clicked() {
                 choice = Some(None);
             }
             for font in state.available.iter().filter(|font| font.code == code) {
@@ -133,7 +135,7 @@ pub fn menu(ui: &mut egui::Ui) {
                 }
             }
             ui.separator();
-            ui.weak("Installed fonts · remembered on exit");
+            ui.weak(language.text("Installed fonts · remembered on exit", "已安装的字体 · 退出时保存"));
             if let Some(choice) = choice {
                 let error = select(ui.ctx(), choice, code).err().unwrap_or_default();
                 ui.ctx()

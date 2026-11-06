@@ -62,6 +62,7 @@ impl ViewerApp {
     pub fn with_saved_state(initial: InitialState, context: &egui::Context) -> Self {
         let Some(path) = crate::persistence::path() else {
             crate::appearance::ThemeChoice::default().apply(context);
+            crate::language::Language::default().apply(context);
             return Self::new(initial);
         };
         Self::restore_from(initial, context, path)
@@ -80,6 +81,7 @@ impl ViewerApp {
         context.set_zoom_factor(state.zoom);
         crate::appearance::set_text_size_percent(context, state.text_size_percent);
         crate::fonts::restore(context, &state.fonts);
+        state.language.apply(context);
         crate::network::set_automatic_images(context, state.automatic_images);
         context.data_mut(|data| data.insert_temp(egui::Id::new("word_wrap"), state.word_wrap));
         state.document_width.apply(context);
@@ -218,6 +220,7 @@ impl ViewerApp {
         let id = egui::ViewportId::from_hash_of(("document_window", self.next_window_id));
         self.next_window_id += 1;
         let mut builder = egui::ViewportBuilder::default()
+            .with_drag_and_drop(true)
             .with_title(format!(
                 "{} — FastMarkdownViewer",
                 spawn.window.tabs[0].document.title
@@ -382,6 +385,7 @@ impl Drop for ViewerApp {
         let state = crate::persistence::State {
             theme: *self.root.theme.lock().expect("appearance lock"),
             fonts: crate::fonts::preferences(context),
+            language: crate::language::Language::current(context),
             document_width: crate::appearance::DocumentWidth::current(context),
             zoom: context.zoom_factor(),
             text_size_percent: crate::appearance::text_size_percent(context),

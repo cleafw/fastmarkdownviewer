@@ -840,3 +840,20 @@ fn rename_preserves_tab_order_active_tab_and_reading_state() {
     assert!(app.root.rename_tab(&context, tab_id, "second.md").is_err());
     assert_eq!(app.root.tabs[0].document.title, "new.markdown");
 }
+
+#[test]
+fn saved_language_overrides_system_and_is_persisted() {
+    use crate::language::Language;
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("language.json");
+    let context = egui::Context::default();
+    let app = ViewerApp::restore_from(InitialState::Empty, &context, path.clone());
+    assert!(Language::current(&context) == Language::System);
+    Language::Chinese.apply(&context);
+    drop(app);
+
+    let context = egui::Context::default();
+    let _app = ViewerApp::restore_from(InitialState::Empty, &context, path);
+    assert_eq!(Language::current(&context).text("File", "文件"), "文件");
+}

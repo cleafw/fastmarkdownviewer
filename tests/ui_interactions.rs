@@ -51,6 +51,13 @@ impl AppServices for TestServices {
     }
 }
 
+// These interaction tests locate controls by their English accessibility labels.
+fn english_context() -> egui::Context {
+    let context = egui::Context::default();
+    fast_markdown_viewer::language::Language::English.apply(&context);
+    context
+}
+
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -148,7 +155,7 @@ fn accesskit_action(
 
 #[test]
 fn empty_window_paints_the_whole_viewport_and_exposes_main_menus() {
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Empty);
     let output = run_frame(&context, &mut app, input(Vec::new()));
@@ -182,7 +189,7 @@ fn empty_window_paints_the_whole_viewport_and_exposes_main_menus() {
 
 #[test]
 fn control_wheel_zooms_in_and_out() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
     run_frame(&context, &mut app, input(Vec::new()));
     let initial_zoom = context.zoom_factor();
@@ -219,7 +226,7 @@ fn control_wheel_zooms_in_and_out() {
 
 #[test]
 fn find_and_heading_shortcuts_toggle_and_release_keyboard_focus() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
     run_frame(&context, &mut app, input(Vec::new()));
     for expected in [true, false, true, false] {
@@ -248,7 +255,7 @@ fn find_and_heading_shortcuts_toggle_and_release_keyboard_focus() {
 
 #[test]
 fn empty_window_explains_find_and_heading_shortcuts() {
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Empty);
     let mut raw = input(Vec::new());
@@ -278,7 +285,7 @@ fn empty_window_explains_find_and_heading_shortcuts() {
 
 #[test]
 fn default_fonts_cover_common_unicode_emoji() {
-    let context = egui::Context::default();
+    let context = english_context();
     fonts::install(&context);
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
@@ -298,7 +305,7 @@ fn default_fonts_cover_common_unicode_emoji() {
 
 #[test]
 fn mouse_wheel_scrolls_the_real_document_surface_without_panicking() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
     run_frame(&context, &mut app, input(Vec::new()));
 
@@ -326,7 +333,7 @@ fn mouse_wheel_scrolls_the_real_document_surface_without_panicking() {
 
 #[test]
 fn page_space_home_end_and_arrow_keys_scroll_the_document() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
     run_frame(&context, &mut app, input(Vec::new()));
 
@@ -381,7 +388,7 @@ fn page_space_home_end_and_arrow_keys_scroll_the_document() {
 
 #[test]
 fn dropping_files_opens_tabs_and_deduplicates_paths() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Empty);
     let path = fixture();
     let mut drop_input = input(Vec::new());
@@ -403,7 +410,7 @@ fn dropping_files_opens_tabs_and_deduplicates_paths() {
 
 #[test]
 fn control_o_uses_the_picker_and_loads_the_selected_file() {
-    let context = egui::Context::default();
+    let context = english_context();
     let services = Arc::new(TestServices::default());
     let path = fixture();
     *services.selected_file.lock().unwrap() = Some(path.clone());
@@ -425,7 +432,7 @@ fn control_o_uses_the_picker_and_loads_the_selected_file() {
 
 #[test]
 fn invalid_drop_is_a_visible_error_instead_of_a_crash() {
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Empty);
     let missing = Path::new(env!("CARGO_MANIFEST_DIR")).join("definitely-missing.md");
     let mut drop_input = input(Vec::new());
@@ -455,7 +462,7 @@ fn accessibility_clicks_dispatch_safe_links_and_leave_unsafe_links_inert() {
     )
     .unwrap();
 
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let services = Arc::new(TestServices::default());
     let mut app =
@@ -493,7 +500,7 @@ fn accessible_text_selection_can_be_copied() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     writeln!(file, "{SENTENCE}").unwrap();
 
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     let output = run_frame(&context, &mut app, input(Vec::new()));
@@ -585,7 +592,7 @@ fn system_theme_and_common_windows_scale_factors_render_without_panicking() {
         (1.5, egui::Theme::Dark),
         (2.0, egui::Theme::Light),
     ] {
-        let context = egui::Context::default();
+        let context = english_context();
         context.set_theme(egui::ThemePreference::System);
         let mut app = ViewerApp::new(InitialState::Path(fixture()));
         let mut raw_input = input(Vec::new());
@@ -609,7 +616,7 @@ fn find_searches_rendered_text_and_code_without_stealing_typing_keys() {
         "Filler paragraph.\n\n".repeat(70)
     )
     .unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     run_frame(&context, &mut app, input(Vec::new()));
     run_frame(
@@ -660,7 +667,7 @@ fn tabs_preserve_scroll_and_bad_opens_preserve_documents() {
     let second = directory.path().join("second.md");
     std::fs::write(&first, "Paragraph.\n\n".repeat(100)).unwrap();
     std::fs::write(&second, "# Second").unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(first.clone()));
     run_frame(&context, &mut app, input(Vec::new()));
     run_frame(
@@ -719,7 +726,7 @@ fn outline_navigates_duplicate_and_setext_headings_and_can_be_hidden() {
         "Paragraph.\n\n".repeat(80)
     )
     .unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     run_frame(&context, &mut app, input(Vec::new()));
@@ -762,7 +769,7 @@ fn outline_navigates_duplicate_and_setext_headings_and_can_be_hidden() {
 #[cfg(target_os = "windows")]
 fn windows_fallbacks_contain_actual_multilingual_glyphs_in_text_and_code() {
     const SAMPLE: &str = "English 日本語 中文 한국어 العربية עברית 🙂 हिन्दी देवनागरी ภาษาไทย";
-    let context = egui::Context::default();
+    let context = english_context();
     fonts::install(&context);
     fonts::ensure_for_text(&context, SAMPLE);
     let mut output = context.run_ui(input(Vec::new()), |ui| {
@@ -805,7 +812,7 @@ fn find_reveals_matches_beyond_a_code_blocks_horizontal_viewport() {
         "padding ".repeat(60)
     )
     .unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     context.data_mut(|data| data.insert_temp(egui::Id::new("word_wrap"), false));
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     run_frame(&context, &mut app, input(Vec::new()));
@@ -857,7 +864,7 @@ fn remote_images_default_on_can_be_blocked_and_loaded_individually() {
         "![One](https://example.com/one.svg)\n\n![Two](https://example.com/two.svg)"
     )
     .unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     network::install(&context);
     let images = Arc::new(TestImages::default());
@@ -953,7 +960,7 @@ fn clicking_heading_and_cross_document_links_navigates_in_window() {
         ),
     )
     .unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(source));
     let output = run_frame(&context, &mut app, input(vec![]));
@@ -1013,7 +1020,7 @@ fn tab_menu_reveals_and_renames_the_real_file() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("old.md");
     std::fs::write(&source, "# Original").unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let services = Arc::new(TestServices::default());
     let mut app = ViewerApp::with_services(InitialState::Path(source.clone()), services.clone());
@@ -1119,7 +1126,7 @@ fn document_reflows_to_ultrawide_viewport_and_back() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     let paragraph = "This paragraph should use the available document width. ".repeat(100);
     writeln!(file, "{paragraph}").unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     let mut sizes = Vec::new();
     for (width, setting) in [
@@ -1168,7 +1175,7 @@ fn document_reflows_to_ultrawide_viewport_and_back() {
 #[test]
 fn settings_width_is_independent_of_word_wrap() {
     use fast_markdown_viewer::appearance::DocumentWidth;
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Empty);
     assert_eq!(DocumentWidth::current(&context), DocumentWidth::Comfortable);
@@ -1205,7 +1212,7 @@ fn document_overflow_can_scroll_horizontally() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     // Deep indentation is an object that cannot fit even when its text wraps.
     write!(file, "Document marker\n\n{}Overflow\n", "> ".repeat(60)).unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     let marker_x = |output: &egui::FullOutput| {
         output
@@ -1247,7 +1254,7 @@ fn document_overflow_can_scroll_horizontally() {
 
 #[test]
 fn settings_word_wrap_is_enabled_by_default_and_toggles() {
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Empty);
     let output = run_frame(&context, &mut app, input(vec![]));
@@ -1298,7 +1305,7 @@ fn settings_word_wrap_is_enabled_by_default_and_toggles() {
 #[test]
 fn settings_selects_solarized_light_and_system_restores_standard_palettes() {
     use fast_markdown_viewer::appearance::ThemeChoice;
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
     for (role, label) in [
@@ -1358,7 +1365,7 @@ fn settings_text_font_selection_updates_rendered_fonts() {
     } else {
         ("DejaVu Sans", "DejaVuSans.ttf")
     };
-    let context = egui::Context::default();
+    let context = english_context();
     fonts::install(&context);
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Path(fixture()));
@@ -1399,7 +1406,7 @@ fn document_text_size_reflows_content_without_zooming_the_interface() {
     use fast_markdown_viewer::appearance::set_text_size_percent;
     let mut file = tempfile::NamedTempFile::new().unwrap();
     writeln!(file, "# Size heading\n\n{}\n\n`Inline marker`\n\n```text\nCode marker\n```\n\n| Column |\n|---|\n| Table marker |", "Paragraph marker with enough words to reflow. ".repeat(12)).unwrap();
-    let context = egui::Context::default();
+    let context = english_context();
     let mut app = ViewerApp::new(InitialState::Path(file.path().to_owned()));
     let mut samples = Vec::new();
     for percent in [100, 150, 150, 100] {
@@ -1472,7 +1479,7 @@ fn document_text_size_reflows_content_without_zooming_the_interface() {
 
 #[test]
 fn settings_text_size_slider_sets_document_size_without_changing_zoom() {
-    let context = egui::Context::default();
+    let context = english_context();
     context.enable_accesskit();
     let mut app = ViewerApp::new(InitialState::Empty);
     let mut raw = input(vec![]);

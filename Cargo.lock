@@ -1272,6 +1272,7 @@ dependencies = [
  "rusty-mermaid-svg",
  "serde",
  "serde_json",
+ "sys-locale",
  "tempfile",
  "ttf-parser",
  "ureq 2.12.1",

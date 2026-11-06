@@ -31,13 +31,14 @@ impl DocumentWidth {
     }
 
     pub(crate) fn menu(ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
         let previous = Self::current(ui.ctx());
         let mut width = previous;
         let label = |width| match width {
-            Self::Comfortable => "Comfortable (960)",
-            Self::FitWindow => "Fit window",
+            Self::Comfortable => language.text("Comfortable (960)", "适中 (960)"),
+            Self::FitWindow => language.text("Fit window", "适应窗口"),
         };
-        ui.menu_button(format!("Document width: {}", label(width)), |ui| {
+        ui.menu_button(format!("{}: {}", language.text("Document width", "正文宽度"), label(width)), |ui| {
             for choice in [Self::Comfortable, Self::FitWindow] {
                 if ui.radio_value(&mut width, choice, label(choice)).clicked() {
                     ui.close();
@@ -73,10 +74,11 @@ pub fn set_text_size_percent(context: &egui::Context, percent: u16) {
 }
 
 pub(crate) fn text_size_menu(ui: &mut egui::Ui) {
+    let language = crate::language::Language::current(ui.ctx());
     let mut percent = text_size_percent(ui.ctx());
     if ui.add(egui::Slider::new(&mut percent, MIN_TEXT_SIZE..=MAX_TEXT_SIZE)
-        .text("Document text size").suffix("%"))
-        .on_hover_text("Resize prose, headings, tables, and code. Click the number to type a value. Images and Mermaid diagrams keep their size.")
+        .text(language.text("Document text size", "正文字号")).suffix("%"))
+        .on_hover_text(language.text("Resize prose, headings, tables, and code. Click the number to type a value. Images and Mermaid diagrams keep their size.", "调整正文、标题、表格和代码的字号。点击数字可输入数值。图片和 Mermaid 图表保持原大小。"))
         .changed() {
         set_text_size_percent(ui.ctx(), percent);
     }
@@ -118,6 +120,18 @@ impl ThemeChoice {
     ];
 
     #[must_use]
+    pub(crate) fn localized_label(self, language: crate::language::Language) -> &'static str {
+        let chinese = match self {
+            Self::System => "跟随系统",
+            Self::Light => "浅色",
+            Self::Dark => "深色",
+            Self::SolarizedLight => "Solarized 浅色",
+            Self::SolarizedDark => "Solarized 深色",
+            _ => self.label(),
+        };
+        language.text(self.label(), chinese)
+    }
+
     pub const fn label(self) -> &'static str {
         match self {
             Self::System => "Use system setting",
