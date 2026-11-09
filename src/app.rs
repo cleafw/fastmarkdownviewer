@@ -123,6 +123,9 @@ struct ViewerWindow {
     show_outline: bool,
     hide_open_files: bool,
     hide_tabs: bool,
+    focus_mode: bool,
+    file_filter: String,
+    focus_file_filter: bool,
     focus_search: bool,
     tab_drag: Option<TabDrag>,
     drag_cancelled: bool,
@@ -146,6 +149,9 @@ impl ViewerWindow {
             show_outline: true,
             hide_open_files: false,
             hide_tabs: false,
+            focus_mode: false,
+            file_filter: String::new(),
+            focus_file_filter: false,
             focus_search: false,
             tab_drag: None,
             drag_cancelled: false,
@@ -364,24 +370,43 @@ impl ViewerWindow {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(((ui.available_height() - 360.0) * 0.35).max(16.0));
-                ui.heading("FastMarkdownViewer");
-                ui.label(language.text("Drop a Markdown file here, or open one.", "将 Markdown 文档拖到这里，或手动打开。"));
-                ui.add_space(12.0);
-                if ui.button(language.text("Open Markdown file…", "打开 Markdown 文档…")).clicked() {
-                    self.open_dialog();
-                }
+                let fill = ui.visuals().faint_bg_color;
+                let accent = ui.visuals().selection.bg_fill;
+                egui::Frame::new()
+                    .fill(fill)
+                    .stroke(ui.visuals().window_stroke)
+                    .corner_radius(10)
+                    .inner_margin(egui::Margin::symmetric(20, 18))
+                    .show(ui, |ui| {
+                        ui.set_max_width(400.0);
+                        ui.vertical_centered(|ui| {
+                            ui.heading("FastMarkdownViewer");
+                            ui.add_space(6.0);
+                            ui.label(language.text("Drop a Markdown file here, or open one.", "将 Markdown 文档拖到这里，或手动打开。"));
+                            ui.add_space(12.0);
+                            if ui.add(
+                                egui::Button::new(language.text("Open Markdown file…", "打开 Markdown 文档…"))
+                                    .fill(accent)
+                                    .min_size(egui::vec2(0.0, 30.0)),
+                            ).clicked() {
+                                self.open_dialog();
+                            }
+                        });
+                    });
                 ui.add_space(8.0);
                 ui.weak(language.text("Read-only · no history · no telemetry", "只读 · 无历史记录 · 无遥测"));
                 ui.add_space(20.0);
                 ui.strong(language.text("Keyboard shortcuts", "键盘快捷键"));
                 for (shortcut, action) in [
                     ("Ctrl+O", language.text("Open a Markdown file", "打开 Markdown 文档")),
+                    ("Ctrl+P", language.text("Filter open files", "筛选已打开文件")),
                     ("Ctrl+F", language.text("Show / hide Find", "显示或隐藏查找栏")),
                     ("Ctrl+H", language.text("Show / hide headings", "显示或隐藏目录")),
                     ("Enter / Shift+Enter", language.text("Next / previous match", "下一个或上一个匹配项")),
                     ("Ctrl+Tab / Ctrl+Shift+Tab", language.text("Next / previous tab", "下一个或上一个标签页")),
                     ("Ctrl+W", language.text("Close tab", "关闭标签页")),
                     ("F5 / Ctrl+R", language.text("Reload file", "重新加载文档")),
+                    ("F9", language.text("Toggle focus mode", "切换专注阅读")),
                     ("Ctrl+mouse wheel", language.text("Zoom text", "缩放文字")),
                 ] {
                     ui.label(format!(
@@ -398,6 +423,13 @@ impl ViewerWindow {
     fn menu_bar(&mut self, ui: &mut egui::Ui) {
         let language = crate::language::Language::current(ui.ctx());
         egui::MenuBar::new().ui(ui, |ui| {
+            if ui.button(language.text("Open…", "打开…"))
+                .on_hover_text(crate::platform::shortcut_label(language.text("Open a Markdown file (Ctrl+O)", "打开 Markdown 文档（Ctrl+O）")))
+                .clicked()
+            {
+                self.open_dialog();
+            }
+            ui.separator();
             ui.menu_button(language.text("File", "文件"), |ui| {
                 if ui.button(language.text("Open…", "打开…")).clicked() {
                     self.open_dialog();
@@ -434,16 +466,28 @@ impl ViewerWindow {
                 self.open_find();
             }
             ui.menu_button(language.text("View", "视图"), |ui| {
-                let mut show_open_files = !self.hide_open_files;
-                let mut show_tabs = !self.hide_tabs;
-                ui.checkbox(&mut show_open_files, language.text("Open files sidebar", "已打开文件侧栏"));
-                if ui.checkbox(&mut show_tabs, language.text("Top tab bar", "顶部标签栏")).changed() {
+                if ui.checkbox(&mut self.focus_mode, language.text("Focus mode    F9", "专注阅读    F9")).changed() {
                     self.tab_drag = None;
+                    ui.close();
                 }
-                self.hide_open_files = !show_open_files;
-                self.hide_tabs = !show_tabs;
-                ui.checkbox(&mut self.show_outline, language.text("Document outline", "文档目录"));
+                ui.separator();
+                ui.add_enabled_ui(!self.focus_mode, |ui| {
+                    let mut show_open_files = !self.hide_open_files;
+                    let mut show_tabs = !self.hide_tabs;
+                    ui.checkbox(&mut show_open_files, language.text("Open files sidebar", "已打开文件侧栏"));
+                    if ui.checkbox(&mut show_tabs, language.text("Top tab bar", "顶部标签栏")).changed() {
+                        self.tab_drag = None;
+                    }
+                    self.hide_open_files = !show_open_files;
+                    self.hide_tabs = !show_tabs;
+                    ui.checkbox(&mut self.show_outline, language.text("Document outline", "文档目录"));
+                });
             });
+            if self.focus_mode
+                && ui.button(language.text("Exit focus mode", "退出专注")).clicked()
+            {
+                self.focus_mode = false;
+            }
             self.theme_menu(ui, language.text("Theme", "主题"));
             ui.menu_button(language.text("Settings", "设置"), |ui| {
                 crate::language::Language::menu(ui);
@@ -497,7 +541,27 @@ impl ViewerWindow {
         }
     }
 
+    fn file_filter_id(context: &egui::Context) -> egui::Id {
+        egui::Id::new(("open_files_filter", context.viewport_id()))
+    }
+
     fn shortcuts(&mut self, context: &egui::Context) {
+        if context.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::F9)) {
+            self.focus_mode = !self.focus_mode;
+            self.tab_drag = None;
+        }
+        if !self.tabs.is_empty()
+            && context.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::P))
+        {
+            self.focus_mode = false;
+            self.hide_open_files = false;
+            self.file_filter.clear();
+            self.focus_file_filter = true;
+        }
+        let filtering_files = !self.focus_mode
+            && !self.hide_open_files
+            && !self.tabs.is_empty()
+            && context.memory(|memory| memory.has_focus(Self::file_filter_id(context)));
         if context.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::F)) {
             if let Some(tab) = self.tabs.get_mut(self.active)
                 && tab.search.open
@@ -549,12 +613,14 @@ impl ViewerWindow {
         if let Some(tab) = self.tabs.get_mut(self.active) {
             let previous = context.input_mut(|input| {
                 input.consume_key(egui::Modifiers::SHIFT, egui::Key::F3)
-                    || (tab.search.open
+                    || (!filtering_files
+                        && tab.search.open
                         && input.consume_key(egui::Modifiers::SHIFT, egui::Key::Enter))
             });
             let next = context.input_mut(|input| {
                 input.consume_key(egui::Modifiers::NONE, egui::Key::F3)
-                    || (tab.search.open
+                    || (!filtering_files
+                        && tab.search.open
                         && input.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
             });
             if previous || next {
@@ -562,7 +628,10 @@ impl ViewerWindow {
                 tab.search.advance(previous);
             }
         }
-        if context.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
+        if !filtering_files
+            && context
+                .input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
             if self.tab_drag.take().is_some() {
                 self.drag_cancelled = true;
                 return;
@@ -593,7 +662,7 @@ impl ViewerWindow {
     }
 
     fn navigation_ui(&mut self, ui: &mut egui::Ui) {
-        if self.tabs.is_empty() || (self.hide_open_files && !self.show_outline) {
+        if self.focus_mode || self.tabs.is_empty() || (self.hide_open_files && !self.show_outline) {
             return;
         }
         let language = crate::language::Language::current(ui.ctx());
@@ -603,38 +672,7 @@ impl ViewerWindow {
             .size_range(100.0..=320.0)
             .show(ui, |ui| {
                 if !self.hide_open_files {
-                    ui.horizontal(|ui| {
-                        ui.strong(language.text("Open files", "已打开文件"));
-                        ui.weak(self.tabs.len().to_string());
-                    });
-                    let max_height = if self.show_outline {
-                        ui.available_height() * 0.5
-                    } else {
-                        ui.available_height()
-                    };
-                    egui::ScrollArea::vertical()
-                        .id_salt("open_files")
-                        .max_height(max_height)
-                        .show(ui, |ui| {
-                            for (index, tab) in self.tabs.iter().enumerate() {
-                                let response = ui
-                                    .push_id(tab.id, |ui| {
-                                        ui.add(
-                                            egui::Button::selectable(
-                                                index == self.active,
-                                                &tab.document.title,
-                                            )
-                                            .truncate()
-                                            .min_size(egui::vec2(ui.available_width(), 0.0)),
-                                        )
-                                        .on_hover_text(tab.document.path.display().to_string())
-                                    })
-                                    .inner;
-                                if response.clicked() {
-                                    self.active = index;
-                                }
-                            }
-                        });
+                    self.open_files_ui(ui);
                     if self.show_outline {
                         ui.separator();
                     }
@@ -669,6 +707,117 @@ impl ViewerWindow {
                         });
                 }
             });
+    }
+
+    fn open_files_ui(&mut self, ui: &mut egui::Ui) {
+        let language = crate::language::Language::current(ui.ctx());
+        let id = Self::file_filter_id(ui.ctx());
+        let focus_requested = std::mem::take(&mut self.focus_file_filter);
+        if focus_requested {
+            ui.memory_mut(|memory| memory.request_focus(id));
+        }
+        let (accept, cancel) = if ui.memory(|memory| memory.has_focus(id)) {
+            ui.input_mut(|input| {
+                (
+                    input.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
+                    input.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
+                )
+            })
+        } else {
+            (false, false)
+        };
+        if cancel {
+            self.file_filter.clear();
+        }
+
+        ui.horizontal(|ui| {
+            ui.strong(language.text("Open files", "已打开文件"));
+            ui.weak(self.tabs.len().to_string());
+        });
+        let response = ui
+            .add(
+                egui::TextEdit::singleline(&mut self.file_filter)
+                    .id(id)
+                    .event_filter(egui::EventFilter {
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        escape: true,
+                        ..Default::default()
+                    })
+                    .desired_width(ui.available_width())
+                    .hint_text(language.text("Filter files…", "筛选文件…")),
+            )
+            .on_hover_text(crate::platform::shortcut_label(language.text(
+                "Filter by filename or path (Ctrl+P)",
+                "按文件名或路径筛选（Ctrl+P）",
+            )));
+        if response.changed() {
+            crate::fonts::ensure_for_text(ui.ctx(), &self.file_filter);
+        }
+
+        let query = self.file_filter.trim().to_lowercase();
+        let matches = self
+            .tabs
+            .iter()
+            .enumerate()
+            .filter(|(_, tab)| {
+                query.is_empty()
+                    || tab.document.title.to_lowercase().contains(&query)
+                    || tab
+                        .document
+                        .path
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .contains(&query)
+            })
+            .collect::<Vec<_>>();
+        if !query.is_empty() {
+            if matches.is_empty() {
+                ui.weak(language.text("No matching files", "没有匹配的文件"));
+            } else {
+                ui.weak(format!("{} / {}", matches.len(), self.tabs.len()));
+            }
+        }
+        if accept {
+            if query.is_empty() {
+                response.surrender_focus();
+            } else if let Some(&(index, _)) = matches.first() {
+                self.active = index;
+                response.surrender_focus();
+            }
+        }
+        if cancel {
+            response.surrender_focus();
+        }
+
+        let max_height = if self.show_outline {
+            ui.available_height() * 0.5
+        } else {
+            ui.available_height()
+        };
+        let mut list = egui::ScrollArea::vertical()
+            .id_salt("open_files")
+            .max_height(max_height);
+        if response.changed() || cancel || focus_requested {
+            list = list.vertical_scroll_offset(0.0);
+        }
+        list.show(ui, |ui| {
+            for (index, tab) in matches {
+                let row = ui
+                    .push_id(tab.id, |ui| {
+                        ui.add(
+                            egui::Button::selectable(index == self.active, &tab.document.title)
+                                .truncate()
+                                .min_size(egui::vec2(ui.available_width(), 0.0)),
+                        )
+                        .on_hover_text(tab.document.path.display().to_string())
+                    })
+                    .inner;
+                if row.clicked() {
+                    self.active = index;
+                }
+            }
+        });
     }
 
     fn tabs_ui(&mut self, ui: &mut egui::Ui) {
@@ -1101,10 +1250,10 @@ impl ViewerWindow {
             .inner_margin(egui::Margin::symmetric(18, 12))
             .show(ui, |ui| {
                 self.menu_bar(ui);
-                if !self.hide_tabs || !self.hide_open_files {
+                if !self.focus_mode && (!self.hide_tabs || !self.hide_open_files) {
                     self.prepare_file_labels(ui.ctx());
                 }
-                if !self.hide_tabs {
+                if !self.focus_mode && !self.hide_tabs {
                     self.tabs_ui(ui);
                 }
                 self.navigation_ui(ui);

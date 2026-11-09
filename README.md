@@ -14,6 +14,8 @@ platform requirements, and tested configurations.
 
 - Use **Theme** in the top menu to switch between the system setting and nine built-in palettes, including Sepia and Nord.
 - Use **View → Open files sidebar** for a scrollable list of the documents in the current window. Click a file to switch to it. Hover over a filename to see its full path.
+- Press **Ctrl+P** (**Command+P** on macOS) to filter open files by name or path. Press **Enter** to switch to the first match or **Esc** to clear the filter.
+- Press **F9** or choose **View → Focus mode** to temporarily hide tabs and sidebars. Toggle it again to restore your layout.
 - Use **View → Top tab bar** to hide or show the horizontal tabs. The file list and document outline can each be shown or hidden independently.
 
 ## Package managers and enterprise deployment

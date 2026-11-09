@@ -846,6 +846,90 @@ fn rename_preserves_tab_order_active_tab_and_reading_state() {
 }
 
 #[test]
+fn quick_filter_switches_files_and_focus_mode_preserves_layout() {
+    let directory = tempfile::tempdir().unwrap();
+    let first = directory.path().join("first.md");
+    let second = directory.path().join("second.md");
+    std::fs::write(&first, "# First").unwrap();
+    std::fs::write(&second, "# Second").unwrap();
+    let context = egui::Context::default();
+    let mut app = ViewerApp::new(InitialState::Path(first.clone()));
+    app.root.load(&second);
+    app.root.hide_tabs = true;
+    app.root.hide_open_files = true;
+
+    let press = |key, modifiers| egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers,
+    };
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::F9, egui::Modifiers::NONE)]),
+    );
+    assert!(app.root.focus_mode);
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::F9, egui::Modifiers::NONE)]),
+    );
+    assert!(!app.root.focus_mode);
+    assert!(app.root.hide_tabs && app.root.hide_open_files && app.root.show_outline);
+
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::P, egui::Modifiers::COMMAND)]),
+    );
+    assert!(!app.root.hide_open_files);
+    assert!(context.memory(|m| m.has_focus(ViewerWindow::file_filter_id(&context))));
+    frame(
+        &context,
+        &mut app,
+        input(vec![egui::Event::Text("FIRST".to_owned())]),
+    );
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::Enter, egui::Modifiers::NONE)]),
+    );
+    assert_eq!(
+        app.document_path(),
+        Some(first.canonicalize().unwrap().as_path())
+    );
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::P, egui::Modifiers::COMMAND)]),
+    );
+    frame(
+        &context,
+        &mut app,
+        input(vec![egui::Event::Text("no match".into())]),
+    );
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::Enter, egui::Modifiers::NONE)]),
+    );
+    assert_eq!(
+        app.document_path(),
+        Some(first.canonicalize().unwrap().as_path())
+    );
+    frame(
+        &context,
+        &mut app,
+        input(vec![press(egui::Key::Escape, egui::Modifiers::NONE)]),
+    );
+    assert!(app.root.file_filter.is_empty());
+    assert!(!context.memory(|m| m.has_focus(ViewerWindow::file_filter_id(&context))));
+    assert_eq!(app.tab_count(), 2);
+}
+
+#[test]
 fn saved_language_overrides_system_and_is_persisted() {
     use crate::language::Language;
 
