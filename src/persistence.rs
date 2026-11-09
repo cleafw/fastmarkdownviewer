@@ -46,6 +46,8 @@ pub(crate) struct Window {
     pub tabs: Vec<Tab>,
     pub active: usize,
     pub outline: bool,
+    pub hide_open_files: bool,
+    pub hide_tabs: bool,
 }
 
 #[derive(Serialize, Deserialize)]

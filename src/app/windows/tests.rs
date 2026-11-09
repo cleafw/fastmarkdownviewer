@@ -61,6 +61,7 @@ fn check_tab_title(title: &str) {
         ],
         active: 0,
         outline: true,
+        ..Default::default()
     });
     for _ in 0..4 {
         frame(&context, &mut app, input(Vec::new()));
@@ -223,7 +224,9 @@ fn saved_session_restores_lazily_and_keeps_reading_position() {
         app.root.active = 0;
         app.root.tabs[0].scroll_offset = 500.0;
         app.root.show_outline = false;
-        *app.root.theme.lock().unwrap() = crate::appearance::ThemeChoice::Light;
+        app.root.hide_tabs = true;
+        app.root.hide_open_files = true;
+        *app.root.theme.lock().unwrap() = crate::appearance::ThemeChoice::Nord;
         context.set_zoom_factor(1.25);
         crate::appearance::set_text_size_percent(&context, 150);
         frame(&context, &mut app, input(Vec::new()));
@@ -244,10 +247,12 @@ fn saved_session_restores_lazily_and_keeps_reading_position() {
     );
     assert_eq!(
         *restored.root.theme.lock().unwrap(),
-        crate::appearance::ThemeChoice::Light
+        crate::appearance::ThemeChoice::Nord
     );
     assert!(!crate::network::automatic_images(&context));
     assert!(!restored.root.show_outline);
+    assert!(restored.root.hide_tabs);
+    assert!(restored.root.hide_open_files);
     assert_eq!(
         crate::appearance::DocumentWidth::current(&context),
         crate::appearance::DocumentWidth::FitWindow
@@ -477,12 +482,11 @@ fn tab_center(output: &egui::FullOutput, title: &str) -> egui::Pos2 {
         .unwrap()
         .nodes
         .iter()
-        .find(|(_, node)| {
+        .filter(|(_, node)| {
             node.role() == egui::accesskit::Role::Button && node.label() == Some(title)
         })
-        .unwrap()
-        .1
-        .bounds()
+        .filter_map(|(_, node)| node.bounds())
+        .min_by(|a, b| a.y0.total_cmp(&b.y0))
         .unwrap();
     egui::pos2(
         f64::midpoint(rect.x0, rect.x1) as f32,

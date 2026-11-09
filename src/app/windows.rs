@@ -260,6 +260,8 @@ impl ViewerApp {
             services: window.services.clone(),
             theme: window.theme.clone(),
             show_outline: window.show_outline,
+            hide_open_files: window.hide_open_files,
+            hide_tabs: window.hide_tabs,
             focus_search: false,
             tab_drag: None,
             drag_cancelled: false,

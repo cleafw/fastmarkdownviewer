@@ -409,6 +409,61 @@ fn dropping_files_opens_tabs_and_deduplicates_paths() {
 }
 
 #[test]
+fn open_files_sidebar_switches_documents_with_top_tabs_hidden() {
+    use egui::accesskit::{Action, Role};
+
+    let directory = tempfile::tempdir().unwrap();
+    let context = english_context();
+    context.enable_accesskit();
+    let mut app = ViewerApp::new(InitialState::Empty);
+    let paths = (0..40)
+        .map(|index| {
+            let path = directory.path().join(format!("file-{index:02}.md"));
+            std::fs::write(&path, "# Example document").unwrap();
+            path
+        })
+        .collect::<Vec<_>>();
+    let mut dropped = input(Vec::new());
+    dropped.dropped_files = paths
+        .iter()
+        .cloned()
+        .map(|path| Arc::new(TestDrop(path)) as egui::DroppedFileHandle)
+        .collect();
+    run_frame(&context, &mut app, dropped);
+
+    for (role, label) in [(Role::Button, "View"), (Role::CheckBox, "Top tab bar")] {
+        let output = run_frame(&context, &mut app, input(Vec::new()));
+        let id = node_with_text(accesskit_update(&output), role, label);
+        run_frame(
+            &context,
+            &mut app,
+            input(vec![accesskit_action(Action::Click, id, None)]),
+        );
+    }
+    let output = run_frame(&context, &mut app, input(Vec::new()));
+    let tree = accesskit_update(&output);
+    assert_eq!(
+        tree.nodes
+            .iter()
+            .filter(|(_, node)| node.label() == Some("file-00.md"))
+            .count(),
+        1,
+        "the first file should appear only in the sidebar",
+    );
+    let id = node_with_text(tree, Role::Button, "file-00.md");
+    run_frame(
+        &context,
+        &mut app,
+        input(vec![accesskit_action(Action::Click, id, None)]),
+    );
+    assert_eq!(
+        app.document_path(),
+        Some(paths[0].canonicalize().unwrap().as_path())
+    );
+    assert_eq!(app.tab_count(), paths.len());
+}
+
+#[test]
 fn control_o_uses_the_picker_and_loads_the_selected_file() {
     let context = english_context();
     let services = Arc::new(TestServices::default());
@@ -1034,14 +1089,14 @@ fn tab_menu_reveals_and_renames_the_real_file() {
     ] {
         let output = run_frame(&context, &mut app, input(vec![]));
         let update = accesskit_update(&output);
-        let tab = node_with_text(update, egui::accesskit::Role::Button, "old.md");
         let bounds = update
             .nodes
             .iter()
-            .find(|(id, _)| *id == tab)
-            .unwrap()
-            .1
-            .bounds()
+            .filter(|(_, node)| {
+                node.role() == egui::accesskit::Role::Button && node.label() == Some("old.md")
+            })
+            .filter_map(|(_, node)| node.bounds())
+            .min_by(|a, b| a.y0.total_cmp(&b.y0))
             .unwrap();
         let pos = egui::pos2(
             bounds.x0.midpoint(bounds.x1) as f32,
@@ -1352,6 +1407,32 @@ fn settings_selects_solarized_light_and_system_restores_standard_palettes() {
         assert_eq!(
             context.global_style().visuals.panel_fill,
             expected.panel_fill
+        );
+    }
+}
+
+#[test]
+fn top_theme_menu_applies_nord_and_sepia() {
+    use egui::accesskit::{Action, Role};
+
+    let context = english_context();
+    context.enable_accesskit();
+    let mut app = ViewerApp::new(InitialState::Path(fixture()));
+    for (name, color) in [("Nord", [46, 52, 64]), ("Sepia", [246, 239, 225])] {
+        for (role, label) in [(Role::Button, "Theme:"), (Role::RadioButton, name)] {
+            let output = run_frame(&context, &mut app, input(Vec::new()));
+            let id = node_with_text(accesskit_update(&output), role, label);
+            run_frame(
+                &context,
+                &mut app,
+                input(vec![accesskit_action(Action::Click, id, None)]),
+            );
+        }
+        run_frame(&context, &mut app, input(Vec::new()));
+        let [r, g, b] = color;
+        assert_eq!(
+            context.global_style().visuals.panel_fill,
+            egui::Color32::from_rgb(r, g, b)
         );
     }
 }

@@ -105,10 +105,12 @@ pub enum ThemeChoice {
     #[default]
     Monokai,
     TomorrowNightBlue,
+    Sepia,
+    Nord,
 }
 
 impl ThemeChoice {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 10] = [
         Self::System,
         Self::Light,
         Self::Dark,
@@ -117,6 +119,8 @@ impl ThemeChoice {
         Self::QuietLight,
         Self::Monokai,
         Self::TomorrowNightBlue,
+        Self::Sepia,
+        Self::Nord,
     ];
 
     #[must_use]
@@ -127,6 +131,9 @@ impl ThemeChoice {
             Self::Dark => "深色",
             Self::SolarizedLight => "Solarized 浅色",
             Self::SolarizedDark => "Solarized 深色",
+            Self::QuietLight => "柔和浅色",
+            Self::TomorrowNightBlue => "明日夜蓝",
+            Self::Sepia => "暖色纸张",
             _ => self.label(),
         };
         language.text(self.label(), chinese)
@@ -142,6 +149,8 @@ impl ThemeChoice {
             Self::QuietLight => "Quiet Light",
             Self::Monokai => "Monokai",
             Self::TomorrowNightBlue => "Tomorrow Night Blue",
+            Self::Sepia => "Sepia",
+            Self::Nord => "Nord",
         }
     }
 
@@ -152,7 +161,7 @@ impl ThemeChoice {
         context.style_mut_of(egui::Theme::Dark, |s| s.visuals = egui::Visuals::dark());
         let dark = matches!(
             self,
-            Self::Dark | Self::SolarizedDark | Self::Monokai | Self::TomorrowNightBlue
+            Self::Dark | Self::SolarizedDark | Self::Monokai | Self::TomorrowNightBlue | Self::Nord
         );
         context.set_theme(if self == Self::System {
             egui::ThemePreference::System
@@ -177,6 +186,12 @@ impl ThemeChoice {
             ]),
             Self::TomorrowNightBlue => Some([
                 0x00_24_51, 0x00_1c_40, 0xff_ff_ff, 0xa8_b7_d0, 0x99_ff_ff, 0x00_3f_8e,
+            ]),
+            Self::Sepia => Some([
+                0xf6_ef_e1, 0xe9_de_c9, 0x3b_2c_1e, 0x6d_57_40, 0x80_43_25, 0xdd_c5_a6,
+            ]),
+            Self::Nord => Some([
+                0x2e_34_40, 0x3b_42_52, 0xec_ef_f4, 0xb1_bc_d0, 0x88_c0_d0, 0x4c_56_6a,
             ]),
             _ => None,
         };
@@ -231,7 +246,7 @@ impl ThemeChoice {
             match self {
                 Self::SolarizedLight => "Solarized (light)",
                 Self::SolarizedDark => "Solarized (dark)",
-                Self::QuietLight => "InspiredGitHub",
+                Self::QuietLight | Self::Sepia => "InspiredGitHub",
                 Self::Monokai => "Monokai",
                 Self::TomorrowNightBlue => "Tomorrow Night Blue",
                 _ => "auto",

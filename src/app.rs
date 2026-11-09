@@ -121,6 +121,8 @@ struct ViewerWindow {
     services: Arc<dyn AppServices>,
     theme: Arc<Mutex<ThemeChoice>>,
     show_outline: bool,
+    hide_open_files: bool,
+    hide_tabs: bool,
     focus_search: bool,
     tab_drag: Option<TabDrag>,
     drag_cancelled: bool,
@@ -142,6 +144,8 @@ impl ViewerWindow {
             services,
             theme: Arc::new(Mutex::new(ThemeChoice::default())),
             show_outline: true,
+            hide_open_files: false,
+            hide_tabs: false,
             focus_search: false,
             tab_drag: None,
             drag_cancelled: false,
@@ -429,6 +433,18 @@ impl ViewerWindow {
             {
                 self.open_find();
             }
+            ui.menu_button(language.text("View", "视图"), |ui| {
+                let mut show_open_files = !self.hide_open_files;
+                let mut show_tabs = !self.hide_tabs;
+                ui.checkbox(&mut show_open_files, language.text("Open files sidebar", "已打开文件侧栏"));
+                if ui.checkbox(&mut show_tabs, language.text("Top tab bar", "顶部标签栏")).changed() {
+                    self.tab_drag = None;
+                }
+                self.hide_open_files = !show_open_files;
+                self.hide_tabs = !show_tabs;
+                ui.checkbox(&mut self.show_outline, language.text("Document outline", "文档目录"));
+            });
+            self.theme_menu(ui, language.text("Theme", "主题"));
             ui.menu_button(language.text("Settings", "设置"), |ui| {
                 crate::language::Language::menu(ui);
                 let wrap_id = egui::Id::new("word_wrap");
@@ -444,19 +460,7 @@ impl ViewerWindow {
                     crate::network::set_automatic_images(ui.ctx(), automatic);
                 }
                 ui.separator();
-                let mut theme = *self.theme.lock().expect("appearance lock");
-                let previous = theme;
-                ui.menu_button(format!("{}: {}", language.text("Color theme", "配色主题"), theme.localized_label(language)), |ui| {
-                    for choice in ThemeChoice::ALL {
-                        if ui.radio_value(&mut theme, choice, choice.localized_label(language)).clicked() {
-                            ui.close();
-                        }
-                    }
-                });
-                if theme != previous {
-                    *self.theme.lock().expect("appearance lock") = theme;
-                    theme.apply(ui.ctx());
-                }
+                self.theme_menu(ui, language.text("Color theme", "配色主题"));
                 crate::fonts::menu(ui);
 
                 ui.separator();
@@ -467,6 +471,23 @@ impl ViewerWindow {
             });
         });
         ui.separator();
+    }
+
+    fn theme_menu(&self, ui: &mut egui::Ui, title: &str) {
+        let language = crate::language::Language::current(ui.ctx());
+        let previous = *self.theme.lock().expect("appearance lock");
+        let mut theme = previous;
+        ui.menu_button(format!("{title}: {}", theme.localized_label(language)), |ui| {
+            for choice in ThemeChoice::ALL {
+                if ui.radio_value(&mut theme, choice, choice.localized_label(language)).clicked() {
+                    ui.close();
+                }
+            }
+        });
+        if theme != previous {
+            *self.theme.lock().expect("appearance lock") = theme;
+            theme.apply(ui.ctx());
+        }
     }
 
     fn open_find(&mut self) {
@@ -561,17 +582,99 @@ impl ViewerWindow {
         }
     }
 
+    fn prepare_file_labels(&mut self, context: &egui::Context) {
+        // Labels are visible even when their restored documents remain unloaded.
+        for tab in &mut self.tabs {
+            if !tab.title_fonts_checked {
+                crate::fonts::ensure_for_text(context, &tab.document.title);
+                tab.title_fonts_checked = true;
+            }
+        }
+    }
+
+    fn navigation_ui(&mut self, ui: &mut egui::Ui) {
+        if self.tabs.is_empty() || (self.hide_open_files && !self.show_outline) {
+            return;
+        }
+        let language = crate::language::Language::current(ui.ctx());
+        egui::Panel::left("navigation")
+            .resizable(true)
+            .default_size(190.0)
+            .size_range(100.0..=320.0)
+            .show(ui, |ui| {
+                if !self.hide_open_files {
+                    ui.horizontal(|ui| {
+                        ui.strong(language.text("Open files", "已打开文件"));
+                        ui.weak(self.tabs.len().to_string());
+                    });
+                    let max_height = if self.show_outline {
+                        ui.available_height() * 0.5
+                    } else {
+                        ui.available_height()
+                    };
+                    egui::ScrollArea::vertical()
+                        .id_salt("open_files")
+                        .max_height(max_height)
+                        .show(ui, |ui| {
+                            for (index, tab) in self.tabs.iter().enumerate() {
+                                let response = ui
+                                    .push_id(tab.id, |ui| {
+                                        ui.add(
+                                            egui::Button::selectable(
+                                                index == self.active,
+                                                &tab.document.title,
+                                            )
+                                            .truncate()
+                                            .min_size(egui::vec2(ui.available_width(), 0.0)),
+                                        )
+                                        .on_hover_text(tab.document.path.display().to_string())
+                                    })
+                                    .inner;
+                                if response.clicked() {
+                                    self.active = index;
+                                }
+                            }
+                        });
+                    if self.show_outline {
+                        ui.separator();
+                    }
+                }
+                if self.show_outline {
+                    ui.horizontal(|ui| {
+                        ui.strong(language.text("Outline", "目录"));
+                        if ui.small_button(language.text("Hide", "隐藏")).clicked() {
+                            self.show_outline = false;
+                        }
+                    });
+                    let tab = &mut self.tabs[self.active];
+                    egui::ScrollArea::vertical()
+                        .id_salt(("outline", tab.id))
+                        .show(ui, |ui| {
+                            if tab.markdown_cache.navigation.headings.is_empty() {
+                                ui.weak(language.text("No headings", "没有标题"));
+                            }
+                            for (index, heading) in
+                                tab.markdown_cache.navigation.headings.iter().enumerate()
+                            {
+                                ui.horizontal(|ui| {
+                                    ui.add_space(f32::from(heading.level.saturating_sub(1)) * 10.0);
+                                    if ui
+                                        .add(egui::Button::new(&heading.text).frame(false).wrap())
+                                        .clicked()
+                                    {
+                                        tab.heading_target = Some(index);
+                                    }
+                                });
+                            }
+                        });
+                }
+            });
+    }
+
     fn tabs_ui(&mut self, ui: &mut egui::Ui) {
         let language = crate::language::Language::current(ui.ctx());
         if self.tabs.is_empty() {
             return;
-        }
-        // Labels are visible even when their restored documents remain unloaded.
-        for tab in &mut self.tabs {
-            if !tab.title_fonts_checked {
-                crate::fonts::ensure_for_text(ui.ctx(), &tab.document.title);
-                tab.title_fonts_checked = true;
-            }
         }
         let mut close = None;
         let mut detach = None;
@@ -906,41 +1009,6 @@ impl ViewerWindow {
             crate::fonts::ensure_for_text(ui.ctx(), &tab.document.source);
             tab.fonts_checked = true;
         }
-        if self.show_outline {
-            egui::Panel::left("outline")
-                .resizable(true)
-                .default_size(190.0)
-                .size_range(100.0..=320.0)
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.strong(language.text("Outline", "目录"));
-                        if ui.small_button(language.text("Hide", "隐藏")).clicked() {
-                            self.show_outline = false;
-                        }
-                    });
-                    ui.separator();
-                    egui::ScrollArea::vertical()
-                        .id_salt(("outline", tab.id))
-                        .show(ui, |ui| {
-                            if tab.markdown_cache.navigation.headings.is_empty() {
-                                ui.weak(language.text("No headings", "没有标题"));
-                            }
-                            for (index, heading) in
-                                tab.markdown_cache.navigation.headings.iter().enumerate()
-                            {
-                                ui.horizontal(|ui| {
-                                    ui.add_space(f32::from(heading.level.saturating_sub(1)) * 10.0);
-                                    if ui
-                                        .add(egui::Button::new(&heading.text).frame(false).wrap())
-                                        .clicked()
-                                    {
-                                        tab.heading_target = Some(index);
-                                    }
-                                });
-                            }
-                        });
-                });
-        }
         tab.apply_keyboard_scroll(ui.ctx(), ui.available_height());
         // Keep the complete parser stream intact: upstream's virtualized path can split nested lists.
         let output = ui
@@ -1033,7 +1101,13 @@ impl ViewerWindow {
             .inner_margin(egui::Margin::symmetric(18, 12))
             .show(ui, |ui| {
                 self.menu_bar(ui);
-                self.tabs_ui(ui);
+                if !self.hide_tabs || !self.hide_open_files {
+                    self.prepare_file_labels(ui.ctx());
+                }
+                if !self.hide_tabs {
+                    self.tabs_ui(ui);
+                }
+                self.navigation_ui(ui);
                 self.find_ui(ui);
                 if let Some(error) = self.error.clone() {
                     let mut dismiss = false;
@@ -1110,6 +1184,8 @@ impl ViewerWindow {
 
     fn restore_session(&mut self, window: crate::persistence::Window) {
         self.show_outline = window.outline;
+        self.hide_open_files = window.hide_open_files;
+        self.hide_tabs = window.hide_tabs;
         self.tabs = window
             .tabs
             .into_iter()
@@ -1158,6 +1234,8 @@ impl ViewerWindow {
                 .collect(),
             active: self.active,
             outline: self.show_outline,
+            hide_open_files: self.hide_open_files,
+            hide_tabs: self.hide_tabs,
         }
     }
 }

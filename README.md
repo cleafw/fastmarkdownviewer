@@ -10,6 +10,12 @@ platform requirements, and tested configurations.
 
 > **v0.2.8:** Monokai by default, adjustable document width and text size, theme-aware Mermaid, progressive large-diagram and code rendering, and crisp platform icons. Saved preferences are preserved. Competitor figures below retain their measured v0.2.1 baseline.
 
+## Themes and open files
+
+- Use **Theme** in the top menu to switch between the system setting and nine built-in palettes, including Sepia and Nord.
+- Use **View → Open files sidebar** for a scrollable list of the documents in the current window. Click a file to switch to it. Hover over a filename to see its full path.
+- Use **View → Top tab bar** to hide or show the horizontal tabs. The file list and document outline can each be shown or hidden independently.
+
 ## Package managers and enterprise deployment
 
 **WinGet:** Publication is pending Microsoft's validation, review, and indexing. Track [package submissions](https://github.com/microsoft/winget-pkgs/pulls?q=is%3Apr+Quetzalcohuatl.FastMarkdownViewer).
